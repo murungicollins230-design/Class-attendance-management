@@ -1,0 +1,276 @@
+/* =====================================================================
+   SWE2106 Etivity 5 - Group G
+   Class Attendance Management System - frontend styles
+   ===================================================================== */
+
+:root {
+  --navy: #16324f;
+  --navy-dark: #0f2438;
+  --navy-soft: #1f4e79;
+  --gold: #f0a500;
+  --gold-soft: #ffdf9e;
+  --bg: #f2f5f9;
+  --card: #ffffff;
+  --text: #22303f;
+  --muted: #66788a;
+  --line: #e3e8ee;
+
+  --green: #1e7e34;
+  --green-bg: #e5f4e8;
+  --red: #b3261e;
+  --red-bg: #fceceb;
+  --amber: #9a5b00;
+  --amber-bg: #fff3d6;
+  --gray: #55616e;
+  --gray-bg: #eef1f4;
+
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(15, 36, 56, 0.08), 0 4px 14px rgba(15, 36, 56, 0.06);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a { color: var(--navy-soft); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ------------------------------------------------------------- navbar -- */
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--navy);
+  color: #fff;
+  padding: 10px 22px;
+  box-shadow: var(--shadow);
+}
+
+.navbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+}
+
+.navbar .brand .mark {
+  background: var(--gold);
+  color: var(--navy-dark);
+  border-radius: 8px;
+  padding: 2px 9px;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.navbar .brand small { font-weight: 500; opacity: 0.85; font-size: 12px; }
+
+.navbar .who { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.navbar .who .name { font-weight: 600; }
+.role-chip {
+  background: var(--gold-soft);
+  color: var(--navy-dark);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-weight: 700;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* --------------------------------------------------------------- layout */
+
+.container { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
+
+.page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 6px 0 18px; }
+.page-head h1 { margin: 0; font-size: 24px; }
+.page-head .sub { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+
+.grid { display: grid; gap: 16px; }
+.grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 900px) { .grid.cols-3, .grid.cols-4 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 620px) { .grid.cols-2, .grid.cols-3, .grid.cols-4 { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.card h2 { margin: 0 0 4px; font-size: 17px; }
+.card h3 { margin: 0 0 10px; font-size: 15px; }
+.card .hint { color: var(--muted); font-size: 12.5px; margin: 2px 0 12px; }
+
+.stat-card .value { font-size: 26px; font-weight: 800; color: var(--navy); }
+.stat-card .label { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+
+.course-card { display: flex; flex-direction: column; gap: 8px; }
+.course-card .code {
+  display: inline-block;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 13px;
+  width: fit-content;
+}
+.course-card .title { font-weight: 700; font-size: 15.5px; }
+.course-card .meta { color: var(--muted); font-size: 13px; }
+
+.progress { height: 8px; background: var(--gray-bg); border-radius: 999px; overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--navy-soft); border-radius: 999px; }
+.progress.good > span { background: var(--green); }
+.progress.warn > span { background: var(--gold); }
+.progress.bad > span { background: var(--red); }
+
+/* --------------------------------------------------------------- tables */
+
+.table-wrap { overflow-x: auto; }
+
+table.list { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.list th {
+  text-align: left;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--line);
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+table.list td { border-bottom: 1px solid var(--line); padding: 9px 10px; vertical-align: middle; }
+table.list tr:last-child td { border-bottom: none; }
+table.list tr:hover td { background: #f7fafc; }
+
+.empty { color: var(--muted); text-align: center; padding: 26px 10px; font-size: 13.5px; }
+
+/* --------------------------------------------------------------- badges */
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.badge.present { background: var(--green-bg); color: var(--green); }
+.badge.absent { background: var(--red-bg); color: var(--red); }
+.badge.late { background: var(--amber-bg); color: var(--amber); }
+.badge.unrecorded { background: var(--gray-bg); color: var(--gray); }
+.badge.rate-good { background: var(--green-bg); color: var(--green); }
+.badge.rate-warn { background: var(--amber-bg); color: var(--amber); }
+.badge.rate-bad { background: var(--red-bg); color: var(--red); }
+.badge.rate-none { background: var(--gray-bg); color: var(--gray); }
+
+/* --------------------------------------------------------------- forms */
+
+form.panel { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.field input, .field select, .field textarea {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text);
+  min-width: 160px;
+}
+.field input:focus, .field select:focus { outline: 2px solid var(--gold); border-color: var(--gold); }
+
+button, .btn {
+  font: inherit;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  cursor: pointer;
+  background: var(--navy-soft);
+  color: #fff;
+}
+button:hover, .btn:hover { background: var(--navy); text-decoration: none; }
+button.ghost { background: transparent; color: var(--navy-soft); border: 1px solid var(--line); }
+button.ghost:hover { background: var(--gray-bg); color: var(--navy); }
+button.danger { background: var(--red-bg); color: var(--red); }
+button.danger:hover { background: var(--red); color: #fff; }
+button.gold { background: var(--gold); color: var(--navy-dark); }
+button.gold:hover { background: #d99600; color: var(--navy-dark); }
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ------------------------------------------------------------ register */
+
+.register-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 600; }
+.chip b { font-size: 13px; }
+
+.radio-group { display: flex; gap: 12px; white-space: nowrap; }
+.radio-group label { display: flex; gap: 4px; align-items: center; font-size: 13px; cursor: pointer; }
+.radio-group input { accent-color: var(--navy-soft); }
+
+.note-input { font: inherit; font-size: 12.5px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; width: 170px; }
+
+/* --------------------------------------------------------------- login */
+
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.login-card { width: 420px; max-width: 100%; }
+.login-card .logo { text-align: center; margin-bottom: 14px; }
+.login-card .logo .mark { display: inline-block; background: var(--gold); color: var(--navy-dark); font-weight: 800; border-radius: 10px; padding: 8px 14px; font-size: 20px; }
+.login-card .logo h1 { font-size: 20px; margin: 12px 0 2px; }
+.login-card .logo p { color: var(--muted); font-size: 13px; margin: 0; }
+.login-card form { display: flex; flex-direction: column; gap: 12px; }
+.login-card input { font: inherit; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.login-card input:focus { outline: 2px solid var(--gold); border-color: var(--gold); }
+.login-card button { padding: 12px; }
+.demo-accounts { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 14px; }
+.demo-accounts h4 { margin: 0 0 8px; font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.demo-accounts button { display: block; width: 100%; text-align: left; margin-bottom: 6px; font-weight: 500; font-size: 13px; background: var(--gray-bg); color: var(--navy); }
+.demo-accounts button:hover { background: var(--gold-soft); }
+.error-note { background: var(--red-bg); color: var(--red); border-radius: 8px; padding: 9px 12px; font-size: 13px; display: none; }
+.error-note.show { display: block; }
+
+/* ---------------------------------------------------------------- toast */
+
+#toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+.toast {
+  background: var(--navy);
+  color: #fff;
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-size: 13.5px;
+  box-shadow: var(--shadow);
+  max-width: 380px;
+  animation: slide-up 0.25s ease;
+}
+.toast.success { background: var(--green); }
+.toast.error { background: var(--red); }
+@keyframes slide-up { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.section { margin-top: 26px; }
+.section > h2 { font-size: 18px; margin-bottom: 4px; }
+.section > .hint { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+
+.actions-cell { white-space: nowrap; }
+.actions-cell a, .actions-cell button { margin-right: 6px; font-size: 12.5px; padding: 5px 10px; }
+
+.inline-note { color: var(--muted); font-size: 12px; }

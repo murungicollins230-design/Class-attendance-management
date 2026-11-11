@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Environment configuration (contains local database credentials)
+.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Project-local MySQL data directory (binary database files, recreated by
+# database\start-database.cmd on first run — never commit these)
+database/mysql-data/
+
+# OS editor files
+*.swp
+~$*

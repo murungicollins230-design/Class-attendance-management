@@ -1,0 +1,26 @@
+{
+  "name": "swe2106-class-attendance-system",
+  "version": "1.0.0",
+  "description": "Class Attendance Management System - SWE2106 Etivity 5 (Group G, MUST)",
+  "main": "server.js",
+  "scripts": {
+    "setup": "node database/setup.js",
+    "seed": "node database/seed.js",
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "express",
+    "mysql",
+    "attendance",
+    "swe2106",
+    "must"
+  ],
+  "author": "Group G - SWE2106",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mysql2": "^3.11.0"
+  }
+}

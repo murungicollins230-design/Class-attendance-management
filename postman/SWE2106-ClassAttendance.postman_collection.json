@@ -1,0 +1,1307 @@
+{
+  "info": {
+    "_postman_id": "b7e2a1f0-6c3d-4e5f-9a1b-2d3e4f5a6b7c",
+    "name": "SWE2106 Class Attendance API — Group G",
+    "description": "# Class Attendance Management System — API Collection\n\n**Course:** SWE2106 Internet Technologies and Web Design · Etivity 5 · **Group G** · Mbarara University of Science and Technology\n\n## How to use this collection\n\n1. Start MySQL (port 3307): `database\\start-database.cmd`\n2. Start the API: `npm start` (server listens on `http://localhost:3000`)\n3. Run the folders **in order from top to bottom** — each request sets variables used by later ones.\n4. Before re-running the whole collection, run the **8 · Cleanup** folder first (or reset everything with `npm run seed`).\n\n## Response envelope\n\nEvery endpoint answers with the same envelope:\n\n```json\n{ \"success\": true,  \"message\": \"...\", \"data\": { } }\n{ \"success\": false, \"error\": { \"code\": \"VALIDATION_ERROR\", \"message\": \"...\", \"details\": [ \"...\" ] } }\n```\n\n## Error codes\n\n| Code | HTTP | Meaning |\n|---|---|---|\n| VALIDATION_ERROR | 400 | missing/invalid fields, bad formats, unknown status |\n| NOT_ENROLLED | 400 | student is not enrolled in the course |\n| UNAUTHORIZED | 401 | missing/invalid/expired token |\n| INVALID_CREDENTIALS | 401 | wrong email or password |\n| FORBIDDEN | 403 | role not allowed (or student viewing another student) |\n| *_NOT_FOUND | 404 | referenced record does not exist |\n| DUPLICATE_ENTRY | 409 | duplicate course code / enrolment / attendance entry |\n| SERVER_ERROR | 500 | unexpected fault |\n\n## Demo accounts (fictional data)\n\n| Role | Email | Password |\n|---|---|---|\n| admin | collins.murungi@must.ac.ug | admin123 |\n| lecturer (SWE2106, SWE2101) | dickens.aine@must.ac.ug | lecturer123 |\n| lecturer (SWE2104) | ibrahim.musonirwa@must.ac.ug | lecturer123 |\n| student | savour.nkamushaba@student.must.ac.ug | student123 |\n| registrar (read-only) | osbert.kanyesigye@must.ac.ug | registrar123 |\n\n## Attendance workflow demonstrated\n\nlogin → list courses → (admin) create course → enrol student → (lecturer) create session → record attendance one-by-one or save the whole register → view registers → summaries.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "adminToken", "value": "" },
+    { "key": "lecturerToken", "value": "" },
+    { "key": "lecturer2Token", "value": "" },
+    { "key": "studentToken", "value": "" },
+    { "key": "registrarToken", "value": "" },
+    { "key": "courseId", "value": "1" },
+    { "key": "demoSessionId", "value": "" },
+    { "key": "testCourseId", "value": "" },
+    { "key": "testSessionId", "value": "" },
+    { "key": "enrolStudentId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0 · Health & Logins",
+      "description": "Verifies the API is alive and obtains bearer tokens for each role.",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/health", "host": ["{{baseUrl}}"], "path": ["api", "health"] },
+            "description": "Confirms the API is running and the MySQL database is reachable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Database is connected\", () => {",
+                  "  const b = pm.response.json();",
+                  "  pm.expect(b.success).to.eql(true);",
+                  "  pm.expect(b.data.database).to.eql('connected');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login as admin (Collins)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"collins.murungi@must.ac.ug\",\n  \"password\": \"admin123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+            "description": "System administrator login. Saves the token as {{adminToken}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Token and role returned\", () => {",
+                  "  pm.expect(b.success).to.eql(true);",
+                  "  pm.expect(b.data.user.role).to.eql('admin');",
+                  "  pm.expect(b.data.token).to.be.a('string');",
+                  "});",
+                  "pm.collectionVariables.set(\"adminToken\", b.data.token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login as lecturer (Dickens — teaches SWE2106)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"dickens.aine@must.ac.ug\",\n  \"password\": \"lecturer123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+            "description": "Lecturer login. Saves the token as {{lecturerToken}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Role is lecturer\", () => pm.expect(b.data.user.role).to.eql('lecturer'));",
+                  "pm.collectionVariables.set(\"lecturerToken\", b.data.token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login as lecturer 2 (Ibrahim — teaches SWE2104)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"ibrahim.musonirwa@must.ac.ug\",\n  \"password\": \"lecturer123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+            "description": "Second lecturer — used later to prove a lecturer cannot manage a course they do not teach."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"lecturer2Token\", pm.response.json().data.token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login as student (Savour)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"savour.nkamushaba@student.must.ac.ug\",\n  \"password\": \"student123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+            "description": "Student login. Saves the token as {{studentToken}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Role is student\", () => pm.expect(b.data.user.role).to.eql('student'));",
+                  "pm.collectionVariables.set(\"studentToken\", b.data.token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login as registrar (Osbert)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"osbert.kanyesigye@must.ac.ug\",\n  \"password\": \"registrar123\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+            "description": "Academic Registrar staff login (read-only role). Saves the token as {{registrarToken}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"registrarToken\", pm.response.json().data.token);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Current user profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/auth/me", "host": ["{{baseUrl}}"], "path": ["api", "auth", "me"] },
+            "description": "Shows the account attached to the bearer token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Returns the admin profile\", () => pm.expect(pm.response.json().data.role).to.eql('admin'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1 · Courses",
+      "description": "Course listing and creation. Lecturers see only their courses, students only enrolled courses, staff everything.",
+      "item": [
+        {
+          "name": "List my courses (lecturer)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/courses", "host": ["{{baseUrl}}"], "path": ["api", "courses"] },
+            "description": "Lecturers receive only the courses they teach, with student/session counts and attendance rate."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Only Dickens' courses are returned\", () => {",
+                  "  pm.expect(b.success).to.eql(true);",
+                  "  b.data.forEach(c => pm.expect(c.lecturer_name).to.eql('AINE DICKENS'));",
+                  "});",
+                  "const swe = b.data.find(c => c.code === 'SWE2106');",
+                  "pm.collectionVariables.set(\"courseId\", String(swe.id));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Course detail (student enrolled)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/courses/{{courseId}}", "host": ["{{baseUrl}}"], "path": ["api", "courses", "{{courseId}}"] },
+            "description": "An enrolled student can view the course detail. (A student not enrolled would get 403.)"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Course is SWE2106\", () => pm.expect(pm.response.json().data.code).to.eql('SWE2106'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Create course (admin) — 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"TEST101\",\n  \"title\": \"Postman Demonstration Course\",\n  \"lecturer_id\": 1,\n  \"study_year\": \"Year 2\",\n  \"semester\": \"Semester 2\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/courses", "host": ["{{baseUrl}}"], "path": ["api", "courses"] },
+            "description": "Admin creates a demonstration course. If you re-run the collection without cleanup this returns 409 (code already exists)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set(\"testCourseId\", String(b.data.id));",
+                  "  pm.test(\"Course created (201)\", () => pm.response.to.have.status(201));",
+                  "} else {",
+                  "  pm.test(\"Course code already exists (409) — run the Cleanup folder first\", () => pm.response.to.have.status(409));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "INVALID — duplicate course code (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"SWE2106\",\n  \"title\": \"This code already exists\",\n  \"lecturer_id\": 1\n}" },
+            "url": { "raw": "{{baseUrl}}/api/courses", "host": ["{{baseUrl}}"], "path": ["api", "courses"] },
+            "description": "Server-side duplicate check: course codes are unique."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Error code is DUPLICATE_ENTRY\", () => pm.expect(pm.response.json().error.code).to.eql('DUPLICATE_ENTRY'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "INVALID — missing fields (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"A course without a code\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/courses", "host": ["{{baseUrl}}"], "path": ["api", "courses"] },
+            "description": "Required fields are checked before anything is saved; the response lists every problem."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Error is VALIDATION_ERROR with details\", () => {",
+                  "  pm.expect(b.error.code).to.eql('VALIDATION_ERROR');",
+                  "  pm.expect(b.error.details).to.be.an('array').with.lengthOf.at.least(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "FORBIDDEN — lecturer creates course (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{lecturerToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"HAX001\",\n  \"title\": \"Should not be allowed\",\n  \"lecturer_id\": 1\n}" },
+            "url": { "raw": "{{baseUrl}}/api/courses", "host": ["{{baseUrl}}"], "path": ["api", "courses"] },
+            "description": "Only the system administrator can create courses."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Error code is FORBIDDEN\", () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2 · Enrolments",
+      "description": "Enrolling students into courses, with duplicate and unknown-student checks.",
+      "item": [
+        {
+          "name": "List students not enrolled in TEST101",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/students?not_enrolled_in={{testCourseId}}", "host": ["{{baseUrl}}"], "path": ["api", "students"], "query": [{ "key": "not_enrolled_in", "value": "{{testCourseId}}" }] },
+            "description": "The ?not_enrolled_in= filter powers the enrolment form in the frontend."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"At least one student available\", () => pm.expect(b.data.length).to.be.above(0));",
+                  "pm.collectionVariables.set(\"enrolStudentId\", String(b.data[0].id));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Enrol student (admin) — 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"student_id\": {{enrolStudentId}}\n}" },
+            "url": { "raw": "{{baseUrl}}/api/courses/{{testCourseId}}/enrolments", "host": ["{{baseUrl}}"], "path": ["api", "courses", "{{testCourseId}}", "enrolments"] },
+            "description": "Enrols the selected student into the demonstration course."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Success envelope\", () => pm.expect(pm.response.json().success).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "INVALID — duplicate enrolment (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"student_id\": {{enrolStudentId}}\n}" },
+            "url": { "raw": "{{baseUrl}}/api/courses/{{testCourseId}}/enrolments", "host": ["{{baseUrl}}"], "path": ["api", "courses", "{{testCourseId}}", "enrolments"] },
+            "description": "A student can only be enrolled once per course (unique constraint in the database + server-side check)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Error code is DUPLICATE_ENTRY\", () => pm.expect(pm.response.json().error.code).to.eql('DUPLICATE_ENTRY'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "INVALID — unknown student (404)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"student_id\": 99999\n}" },
+            "url": { "raw": "{{baseUrl}}/api/courses/{{testCourseId}}/enrolments", "host": ["{{baseUrl}}"], "path": ["api", "courses", "{{testCourseId}}", "enrolments"] },
+            "description": "Referencing a student that does not exist returns a clear 404."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Error code is STUDENT_NOT_FOUND\", () => pm.expect(pm.response.json().error.code).to.eql('STUDENT_NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "View enrolled students (lecturer)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/courses/{{courseId}}/students", "host": ["{{baseUrl}}"], "path": ["api", "courses", "{{courseId}}", "students"] },
+            "description": "Enrolled students of SWE2106 (11 seeded students)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"9 students are enrolled in SWE2106\", () => pm.expect(pm.response.json().data.length).to.eql(9));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3 · Class Sessions",
+      "description": "Creating and listing class sessions for a course.",
+      "item": [
+        {
+          "name": "List sessions of SWE2106 (lecturer)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/courses/{{courseId}}/sessions", "host": ["{{baseUrl}}"], "path": ["api", "courses", "{{courseId}}", "sessions"] },
+            "description": "Lists sessions with recorded counts. Finds the empty 'Building REST APIs with Express' session for the attendance demos."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"8 sessions exist for SWE2106\", () => pm.expect(b.data.length).to.eql(8));",
+                  "const demo = b.data.find(s => s.topic === 'Building REST APIs with Express');",
+                  "pm.test(\"Demo session has an empty register\", () => pm.expect(demo.recorded_count).to.eql(0));",
+                  "pm.collectionVariables.set(\"demoSessionId\", String(demo.id));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Create session (admin, TEST101) — 201",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"topic\": \"Postman demonstration session\",\n  \"session_date\": \"2026-11-13\",\n  \"start_time\": \"14:00\",\n  \"end_time\": \"16:00\",\n  \"room\": \"LT1\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/courses/{{testCourseId}}/sessions", "host": ["{{baseUrl}}"], "path": ["api", "courses", "{{testCourseId}}", "sessions"] },
+            "description": "Creates a session in the demonstration course."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"testSessionId\", String(pm.response.json().data.id));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "INVALID — bad date format (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"topic\": \"Bad date session\",\n  \"session_date\": \"13/11/2026\",\n  \"start_time\": \"14:00\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/courses/{{testCourseId}}/sessions", "host": ["{{baseUrl}}"], "path": ["api", "courses", "{{testCourseId}}", "sessions"] },
+            "description": "Dates must be YYYY-MM-DD."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Error code is VALIDATION_ERROR\", () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "FORBIDDEN — wrong lecturer (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{lecturer2Token}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"topic\": \"Ibrahim tries to add a session\",\n  \"session_date\": \"2026-11-13\",\n  \"start_time\": \"09:00\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/courses/{{courseId}}/sessions", "host": ["{{baseUrl}}"], "path": ["api", "courses", "{{courseId}}", "sessions"] },
+            "description": "Ibrahim teaches SWE2104, not SWE2106 — only the course lecturer or an admin can create sessions."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Helpful message\", () => pm.expect(pm.response.json().error.message).to.include('courses you teach'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4 · Attendance",
+      "description": "Recording, updating, validating and bulk-saving attendance for the empty demo session.",
+      "item": [
+        {
+          "name": "Record attendance — present (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{lecturerToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"student_id\": 5,\n  \"status\": \"present\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/attendance", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "attendance"] },
+            "description": "Lecturer records student #5 (Nkamushaba Saviour) as present."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Entry stored as present\", () => pm.expect(pm.response.json().data.status).to.eql('present'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "INVALID — duplicate entry (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{lecturerToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"student_id\": 5,\n  \"status\": \"absent\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/attendance", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "attendance"] },
+            "description": "The same student cannot have two entries for one session — this is the core duplicate rule."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Error code is DUPLICATE_ENTRY\", () => pm.expect(pm.response.json().error.code).to.eql('DUPLICATE_ENTRY'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "INVALID — unknown status (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{lecturerToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"student_id\": 6,\n  \"status\": \"excused\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/attendance", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "attendance"] },
+            "description": "Only present, absent and late are valid statuses."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Message lists allowed statuses\", () => pm.expect(pm.response.json().error.message).to.include('present, absent, late'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "INVALID — student not enrolled (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{lecturerToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"student_id\": 14,\n  \"status\": \"present\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/attendance", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "attendance"] },
+            "description": "Student #14 (Namara Jane, a fictional demo student) is not enrolled in SWE2106 — attendance cannot be recorded for her."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Error code is NOT_ENROLLED\", () => pm.expect(pm.response.json().error.code).to.eql('NOT_ENROLLED'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "FORBIDDEN — student records attendance (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{studentToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"student_id\": 6,\n  \"status\": \"present\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/attendance", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "attendance"] },
+            "description": "Students cannot record attendance."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Error code is FORBIDDEN\", () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Update attendance — late (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{lecturerToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"late\",\n  \"note\": \"Arrived 10 minutes late\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/attendance/5", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "attendance", "5"] },
+            "description": "Updates student #5 from present to late."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Status updated to late\", () => pm.expect(pm.response.json().data.status).to.eql('late'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Save whole register (bulk) — 200",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{lecturerToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"entries\": [\n    { \"student_id\": 5, \"status\": \"present\" },\n    { \"student_id\": 6, \"status\": \"absent\", \"note\": \"Approved excuse (medical)\" },\n    { \"student_id\": 7, \"status\": \"late\", \"note\": \"Arrived 15 minutes late\" }\n  ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/register", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "register"] },
+            "description": "The frontend 'Save register' button calls this endpoint. All entries are validated first; if any entry is invalid nothing is saved (transaction)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"3 entries saved\", () => pm.expect(b.data.saved).to.eql(3));",
+                  "pm.test(\"Summary returned\", () => pm.expect(b.data.summary.present).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "INVALID — duplicate student in bulk (400)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{lecturerToken}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"entries\": [\n    { \"student_id\": 8, \"status\": \"present\" },\n    { \"student_id\": 8, \"status\": \"absent\" }\n  ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/register", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "register"] },
+            "description": "The same student twice in one request is rejected before anything is saved."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Error mentions duplicate\", () => pm.expect(pm.response.json().error.message).to.include('more than once'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "View register (lecturer)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/register", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "register"] },
+            "description": "Full register: every enrolled student with their current status (or unrecorded) plus summary counts."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Register has 9 students\", () => pm.expect(b.data.register.length).to.eql(9));",
+                  "pm.test(\"Summary counts the saved entries\", () => {",
+                  "  pm.expect(b.data.summary.present).to.eql(1);",
+                  "  pm.expect(b.data.summary.absent).to.eql(1);",
+                  "  pm.expect(b.data.summary.late).to.eql(1);",
+                  "  pm.expect(b.data.summary.unrecorded).to.eql(6);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "FORBIDDEN — student views register (403)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/register", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "register"] },
+            "description": "Students only see their own attendance, never the full class register."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5 · Histories",
+      "description": "Attendance histories with the students-only-see-their-own rule.",
+      "item": [
+        {
+          "name": "Student reads own history",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/students/5/attendance", "host": ["{{baseUrl}}"], "path": ["api", "students", "5", "attendance"] },
+            "description": "Savour (id 5) reads her own attendance history."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"History records returned with summary\", () => {",
+                  "  pm.expect(b.data.records).to.be.an('array');",
+                  "  pm.expect(b.data.summary.total).to.eql(b.data.records.length);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "FORBIDDEN — other student's history (403)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/students/6/attendance", "host": ["{{baseUrl}}"], "path": ["api", "students", "6", "attendance"] },
+            "description": "Savour (id 5) tries to read Jastina's (id 6) history — rejected."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Error code is FORBIDDEN\", () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Lecturer reads a student's history",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/students/5/attendance?course_id={{courseId}}", "host": ["{{baseUrl}}"], "path": ["api", "students", "5", "attendance"], "query": [{ "key": "course_id", "value": "{{courseId}}" }] },
+            "description": "Staff can review any student. The course_id filter narrows the history to SWE2106."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Only SWE2106 records returned\", () => {",
+                  "  pm.response.json().data.records.forEach(r => pm.expect(r.course_code).to.eql('SWE2106'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Student profile with enrolled courses",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{registrarToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/students/5", "host": ["{{baseUrl}}"], "path": ["api", "students", "5"] },
+            "description": "Profile plus the courses the student is enrolled in."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Student is enrolled in 2 courses\", () => pm.expect(pm.response.json().data.courses.length).to.eql(2));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6 · Summaries",
+      "description": "Reporting endpoints by course, session, student and platform-wide.",
+      "item": [
+        {
+          "name": "Course summary (lecturer)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/summaries/courses/{{courseId}}", "host": ["{{baseUrl}}"], "path": ["api", "summaries", "courses", "{{courseId}}"] },
+            "description": "Per-student statistics for SWE2106: present, absent, late counts and attendance rate."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Summary has 9 students\", () => pm.expect(b.data.students.length).to.eql(9));",
+                  "pm.test(\"Course-level summary present\", () => pm.expect(b.data.course_summary.sessions_held).to.eql(8));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Session summary (registrar)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{registrarToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/summaries/sessions/{{demoSessionId}}", "host": ["{{baseUrl}}"], "path": ["api", "summaries", "sessions", "{{demoSessionId}}"] },
+            "description": "Counts for the demo session after the attendance entries recorded above."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"3 entries recorded, 6 unrecorded\", () => {",
+                  "  pm.expect(b.data.summary.recorded).to.eql(3);",
+                  "  pm.expect(b.data.summary.unrecorded).to.eql(6);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Student summary (own)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{studentToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/summaries/students/5", "host": ["{{baseUrl}}"], "path": ["api", "summaries", "students", "5"] },
+            "description": "Per-course attendance breakdown for Savour."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Two courses with rates\", () => {",
+                  "  pm.expect(b.data.courses.length).to.eql(2);",
+                  "  b.data.courses.forEach(c => pm.expect(c.attendance_rate).to.not.be.null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Platform overview (admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/summaries/overview", "host": ["{{baseUrl}}"], "path": ["api", "summaries", "overview"] },
+            "description": "Platform-wide totals and per-course attendance rates."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Totals include 3+ courses\", () => pm.expect(b.data.totals.courses_total).to.be.at.least(3));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "FORBIDDEN — lecturer reads overview (403)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/summaries/overview", "host": ["{{baseUrl}}"], "path": ["api", "summaries", "overview"] },
+            "description": "The platform overview is restricted to administrators and registrar staff."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7 · Access Control",
+      "description": "Security edge cases: missing tokens, bad tokens, wrong passwords, unknown routes.",
+      "item": [
+        {
+          "name": "No token (401)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/api/courses", "host": ["{{baseUrl}}"], "path": ["api", "courses"] },
+            "description": "Every endpoint except /api/auth/login and /api/health requires a bearer token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error code is UNAUTHORIZED\", () => pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Invalid token (401)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer this-is-not-a-real-token" }],
+            "url": { "raw": "{{baseUrl}}/api/courses", "host": ["{{baseUrl}}"], "path": ["api", "courses"] },
+            "description": "Tokens are checked against active sessions."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Wrong password (401)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"collins.murungi@must.ac.ug\",\n  \"password\": \"definitely-wrong\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+            "description": "Failed logins always return the same generic message (no hints about which part was wrong)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Error code is INVALID_CREDENTIALS\", () => pm.expect(pm.response.json().error.code).to.eql('INVALID_CREDENTIALS'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Unknown route (404)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/definitely-not-a-route", "host": ["{{baseUrl}}"], "path": ["api", "definitely-not-a-route"] },
+            "description": "Unknown API routes return a JSON 404 in the standard envelope."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Error code is NOT_FOUND\", () => pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Admin lists users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/users", "host": ["{{baseUrl}}"], "path": ["api", "users"] },
+            "description": "User administration is admin-only."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"14 seeded accounts\", () => pm.expect(pm.response.json().data.length).to.eql(14));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8 · Cleanup",
+      "description": "Removes the records created by this collection so it can be run again. Run this folder before re-running the collection (or reset everything with `npm run seed`).",
+      "item": [
+        {
+          "name": "Remove demo attendance entries (students 5-7)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/attendance/5", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "attendance", "5"] },
+            "description": "Deletes the attendance entry recorded earlier for student 5. Also repeat for students 6 and 7 below (or run this request with each id)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deleted (200) or already gone (404)\", () => pm.expect([200, 404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Remove demo attendance entry (student 6)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/attendance/6", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "attendance", "6"] },
+            "description": "Cleanup for student 6."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deleted (200) or already gone (404)\", () => pm.expect([200, 404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Remove demo attendance entry (student 7)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{lecturerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/sessions/{{demoSessionId}}/attendance/7", "host": ["{{baseUrl}}"], "path": ["api", "sessions", "{{demoSessionId}}", "attendance", "7"] },
+            "description": "Cleanup for student 7."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deleted (200) or already gone (404)\", () => pm.expect([200, 404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Delete demonstration course TEST101",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/courses/{{testCourseId}}", "host": ["{{baseUrl}}"], "path": ["api", "courses", "{{testCourseId}}"] },
+            "description": "Deleting a course cascades to its enrolments, sessions and attendance entries."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Deleted (200) or already gone (404)\", () => pm.expect([200, 404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ]
+}
