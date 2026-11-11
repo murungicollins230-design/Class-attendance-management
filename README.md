@@ -33,7 +33,8 @@ pull request.
 | 8 | TAREMWA EMMANUEL | 2025/BSE/170/PS | — | Student | Attendance recording, validation rules & duplicate checks |
 | 9 | KAMUKAMA BENJAMIN | 2025/BSE/079/PS | [@2025bse079-ai](https://github.com/2025bse079-ai) | Student | Frontend: login page & role-aware dashboard |
 | 10 | WORIPANERE JOSHUA | 2025/BSE/188/PS | [@2025bse188-crypto](https://github.com/2025bse188-crypto) | Student | Frontend: attendance register page |
-| 11 | KABADIIMA EMMANUEL | 2025/BSE/207/PS | — | Student | Postman collection & API tests |
+| 11 | KABADIIMA EMMANUEL | 2025/BSE/207/PS | .[@Kabadiima-Emmanuel]
+.(https://github.com/Kabadiima-Emmanuel).| Student | Postman collection & API tests |
 
 ---
 
