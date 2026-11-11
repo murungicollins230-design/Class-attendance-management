@@ -484,4 +484,4 @@ git push -u origin feature/your-topic
 ---
 
 © 2026 Group G · SWE2106 · Mbarara University of Science and Technology.
-Educational prototype with demonstration data — not a production system.
+Educational prototype 
