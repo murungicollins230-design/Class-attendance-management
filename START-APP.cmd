@@ -8,6 +8,14 @@ echo   Class Attendance Management System - Group G (SWE2106)
 echo ==========================================================
 echo.
 
+REM ---------- 0. Local configuration file ----------
+if not exist ".env" (
+  if exist ".env.example" (
+    copy /y ".env.example" ".env" >nul
+    echo [i] Created .env from .env.example.
+  )
+)
+
 REM ---------- 1. Node dependencies (first run only) ----------
 if not exist "node_modules" (
   echo [i] Installing Node dependencies ^(first run only^)...
@@ -36,16 +44,14 @@ if errorlevel 1 (
 )
 
 REM ---------- 3. First-time database creation ----------
-if exist "C:\wamp64\bin\mysql\mysql8.4.7\bin\mysql.exe" (
-  "C:\wamp64\bin\mysql\mysql8.4.7\bin\mysql.exe" -h 127.0.0.1 -P 3307 -u root -e "USE swe2106_attendance;" >nul 2>&1
+node "database\check-db.js"
+if errorlevel 1 (
+  echo [i] Creating the database and demo data ^(first run only^)...
+  call npm run setup
   if errorlevel 1 (
-    echo [i] Creating the database and demo data ^(first run only^)...
-    call npm run setup
-    if errorlevel 1 (
-      echo [!] Database setup failed. See the messages above.
-      pause
-      exit /b 1
-    )
+    echo [!] Database setup failed. See the messages above.
+    pause
+    exit /b 1
   )
 )
 

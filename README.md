@@ -162,7 +162,8 @@ class-attendance-system/
 - **Node.js** 18 or newer — <https://nodejs.org>
 - A **MySQL 8** server. The repository includes a one-click script that runs a
   dedicated MySQL instance on port **3307** using a MySQL installation it finds
-  on the machine (it currently points at WAMP's MySQL; edit the `MYSQLD` path in
+  on the machine (it tries WAMP first, then any `mysqld` on your PATH, then a
+  standard MySQL 8 install; edit the `MYSQLD` path in
   `database\start-database.cmd` if yours is elsewhere). Alternatively use any
   MySQL you already have and adjust `.env`.
 
@@ -461,6 +462,8 @@ Result: 47 passed, 0 failed.
 Repository: <https://github.com/murungicollins230-design/Class-attendance-management>
 
 - `main` holds the working application at all times.
+- Every member is added as a **collaborator** (repository *Settings →
+  Collaborators*) and works from their own clone of the repository.
 - Each member worked on a **feature branch** named after their responsibility
   (e.g. `feature/auth-middleware`, `feature/attendance-validation`,
   `feature/frontend-register`).
