@@ -483,5 +483,137 @@ git push -u origin feature/your-topic
 
 ---
 
+# Security Notes — Read Before You Touch This Code
+
+This file lists the security lessons baked into (and the sharp edges
+still present in) the SWE2106 Class Attendance app. Every rule below was
+learned from a specific place in the schema or the Postman collection.
+Ignore them and you will re-open the same holes.
+
+If you are new here, read this file top to bottom before your first PR.
+
+---
+
+## Golden rules
+
+1. **Every query is parameterized.** No string concatenation in SQL. Ever.
+   Use `mysql2/promise` with `?` placeholders.
+2. **Every write is validated by a schema** (Zod / Joi / express-validator).
+   Whitelist fields. Never `Model.create(req.body)`.
+3. **Every object read/write is scoped to the caller.**
+   - Students read their own history only.
+   - Lecturers read/modify only courses where `courses.lecturer_id = req.user.id`.
+   - Registrar and admin read everything.
+   - Role checks alone are not enough — check `user_id` too.
+4. **Errors are generic on the outside, detailed on the inside.**
+   The client sees `409 DUPLICATE_ENTRY`, not `ER_DUP_ENTRY: Duplicate entry
+   'SAVOUR' for key 'users.email'`. Stack traces never reach a client.
+5. **Secrets never live in the repo.** JWT secret, DB password, and seed
+   passwords come from `.env`; `.env` is `.gitignore`d. Rotate on exposure.
+6. **Never trust the client to say who they are.** `role`, `recorded_by`,
+   `created_by`, `created_at`, `student_number` are server-assigned.
+
+---
+
+## Do not overlook — the 12 most likely mistakes
+
+### 1. IDOR on attendance and histories
+`attendance.student_id` and `histories/:studentId` are direct object
+references. A student must **never** be able to pass another student's id.
+Scope every query by `req.user.id` unless role is staff.
+
+### 2. Role escalation at signup
+`users.role` is an ENUM including `'admin'`. Public signup must force
+`role = 'student'`. Only an authenticated admin may set any other role.
+Same for `PUT /users/:id` — reject `role` from non-admin callers.
+
+### 3. Password and token handling
+- Hash with **bcrypt (cost ≥ 12)** or **Argon2id**. Never MD5/SHA-1/SHA-256 alone.
+- The `salt` column exists — confirm the same code that writes it also
+  reads it and uses it correctly. Do not store plaintext anywhere.
+- JWT: strong secret, short access-token TTL (≤ 15 min), refresh-token
+  rotation, `jti` + revocation list so logout actually revokes.
+- Never log passwords, hashes, tokens, or `Authorization` headers.
+
+### 4. Login brute force
+`/login` has no rate limiting in this project. Add IP + account rate
+limiting and lockout/backoff. Same for `/forgot-password` and `/register`.
+
+### 5. SQL injection
+Everything goes through prepared statements. If you find a query built
+with `+` or template literals, treat it as a bug and fix it in that PR.
+
+### 6. XSS on free-text fields
+`topic`, `note`, `full_name`, `room` are user input rendered in HTML.
+Render with `textContent` (not `innerHTML`) or EJS `<%= %>` (not `<%- %>`).
+Add a CSP header via `helmet()`.
+
+### 7. CSRF if tokens are in cookies
+If you switch to cookies, use `SameSite=Lax` + CSRF tokens. Do not set
+`SameSite=None` without a very good reason.
+
+### 8. Cascade deletes destroy audit history
+Cascade from `courses → enrolments/sessions/attendance` will one day be
+run by an admin. Attendance records are academic evidence. Use soft-deletes
+(`deleted_at`) or block deletes on courses with attendance rows. Ask before
+adding `ON DELETE CASCADE` to a new table.
+
+### 9. Bulk register save is not atomic
+Save the register inside a transaction. Use
+`INSERT ... ON DUPLICATE KEY UPDATE` so a double-submit is safe. If one row
+fails, roll back the whole batch — never leave half a register written.
+
+### 10. Missing business rules the schema wants
+Enforce, ideally in MySQL 8 `CHECK` constraints **and** the service layer:
+- `attendance.student_id` must belong to an enrolment for that course.
+- `start_time < end_time` (when `end_time` is present).
+- `role='student'` ⇔ `student_number IS NOT NULL`.
+- `class_sessions.session_date <= today` to record attendance;
+  `>= today` to create a session (unless admin override).
+- `recorded_by` must be a lecturer on that course or an admin.
+- Unique on `(course.code, study_year, semester)` — not on `code` alone.
+
+### 11. Bulk writes, large payloads, and slow queries
+- `express.json({ limit: '10kb' })`.
+- Length limits on `topic`, `note`, `room`, `full_name`.
+- Pagination + `LIMIT` on every listing endpoint.
+- Index `attendance.student_id`, `attendance.session_id`,
+  `class_sessions.course_id` for reporting queries.
+
+### 12. Seeds, demo credentials, and Postman files
+- `npm run seed` must refuse to run if `NODE_ENV=production` unless
+  `--force` and the user types the DB name.
+- Do **not** commit `.env` or any environment file containing real tokens.
+  The Postman collection must use placeholder variables only.
+- Seed users get random passwords printed once — not shared demo passwords.
+
+---
+
+## What the smoke test does NOT check
+
+`node scripts/smoke-test.js` covers 47 happy-path and validation checks.
+It does **not** cover SQL injection, XSS, IDOR, JWT tampering, brute force,
+CSRF, oversized payloads, or dependency CVEs. Green smoke tests are not
+proof of security. Add security cases to the Postman collection.
+
+---
+
+## If you change the schema
+
+- Adding a `status` value? Update `ENUM`, validators, summary queries, and tests.
+- Adding a table that references `users.id`? Decide whether it cascades.
+  If the data is audit history, it must not cascade.
+- Adding a `NULL`able `UNIQUE` column? Remember MySQL allows many NULLs.
+- Adding a `role`? Update all `role IN (...)` checks in middleware and
+  summaries — do not assume a fixed set.
+
+---
+
+## Reporting a security issue
+
+Open a **private** issue (or email the maintainer) — do not open a public
+PR that describes the exploit. Do not include real student data.
+
+
 © 2026 Group G · SWE2106 · Mbarara University of Science and Technology.
 Educational prototype 
